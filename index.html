@@ -162,6 +162,11 @@
     <button class="theme-btn" id="themeBtn" aria-label="تبديل المظهر">◐</button>
   </header>
 
+  <input type="checkbox" id="hpt" switch aria-hidden="true" tabindex="-1"
+    style="position:fixed;top:-9999px;left:-9999px;width:0;height:0;opacity:0;pointer-events:none">
+  <label for="hpt" id="hptL" aria-hidden="true"
+    style="position:fixed;top:-9999px;left:-9999px;width:0;height:0"></label>
+
   <div id="app"></div>
 
   <div class="controls">
@@ -199,6 +204,11 @@
   ];
   var TOTAL=PLAN.length;
   var TODAY_MS=null, lastKey=null;
+  var hptL=document.getElementById('hptL');
+  function haptic(strong){
+    try{ if(navigator.vibrate) navigator.vibrate(strong?[8,20,8]:8); }catch(e){}
+    try{ if(hptL) hptL.click(); }catch(e){}   // نبضة على iOS عبر عنصر switch مخفي
+  }
 
   function ar(n){return String(n).replace(/[0-9]/g,function(d){return "٠١٢٣٤٥٦٧٨٩"[+d];});}
   function arRange(s){return s.replace(/[0-9]/g,function(d){return "٠١٢٣٤٥٦٧٨٩"[+d];}).replace("-","–");}
@@ -330,12 +340,12 @@
       var c=st.reps[key]||0;
       c=inc?Math.min(target,c+1):Math.max(0,c-1);
       st.reps[key]=c; saveDay(TODAY_MS,st); updateBox(boxEl,c,target);
-      if(inc&&c===target&&navigator.vibrate) navigator.vibrate(18);
+      haptic(inc&&c===target);   // نبضة كل ضغطة، وأقوى عند إكمال الهدف
     }else if(chk){
       var id=chk.getAttribute('data-check');
       st.done[id]=!st.done[id]; saveDay(TODAY_MS,st);
       chk.closest('.task').classList.toggle('done',!!st.done[id]);
-      if(navigator.vibrate) navigator.vibrate(10);
+      haptic(false);
     }
   });
 
