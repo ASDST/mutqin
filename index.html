@@ -105,26 +105,26 @@
   .juz{font-size:16px;font-weight:800;background:var(--surface-2);border:1px solid var(--gold-soft);
     color:var(--gold);border-radius:10px;padding:4px 12px}
 
-  /* rep list (interactive counters) */
-  .rep-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 2px;padding-inline-start:40px}
-  .rep-row{display:flex;gap:8px}
-  .rep-inc{flex:1;display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);
+  /* single rep counter per task (interactive) */
+  .rep-single{display:flex;gap:8px;margin:12px 0 2px;padding-inline-start:40px}
+  .rep-inc{flex:1;display:flex;align-items:center;gap:12px;padding:12px 15px;border:1px solid var(--line);
     border-radius:13px;background:var(--surface-2);cursor:pointer;font-family:inherit;color:var(--ink);
     transition:transform .1s, background .15s, border-color .15s}
-  .rep-inc:active{transform:scale(.985)}
-  .rep-page{font-size:16px;font-weight:800;min-width:62px;text-align:start;white-space:nowrap}
-  .rep-prog{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden;min-width:40px}
-  .rep-prog i{display:block;height:100%;width:0;background:var(--teal-bright);border-radius:99px;transition:width .25s}
-  .rep-count{font-size:14px;font-weight:700;color:var(--muted);min-width:56px;text-align:end;white-space:nowrap}
-  .rep-count b{color:var(--ink);font-size:18px;font-weight:800}
+  .rep-inc:active{transform:scale(.99)}
+  .rep-count{font-size:14px;font-weight:700;color:var(--muted);min-width:58px;text-align:start;white-space:nowrap}
+  .rep-count b{color:var(--ink);font-size:20px;font-weight:800}
   .rep-ok{display:none;color:var(--teal);font-weight:900;margin-inline-start:2px}
-  .rep-dec{width:42px;flex:none;border:1px solid var(--line);border-radius:13px;background:var(--surface);
+  .rep-prog{flex:1;height:9px;border-radius:99px;background:var(--line);overflow:hidden;min-width:40px}
+  .rep-prog i{display:block;height:100%;width:0;background:var(--teal-bright);border-radius:99px;transition:width .25s}
+  .rep-tap{font-size:11.5px;color:var(--faint);white-space:nowrap;font-weight:700}
+  .rep-dec{width:46px;flex:none;border:1px solid var(--line);border-radius:13px;background:var(--surface);
     color:var(--muted);font-size:22px;font-weight:800;cursor:pointer;font-family:inherit;transition:.1s}
   .rep-dec:active{transform:scale(.95)}
-  .rep-row.complete .rep-inc{background:color-mix(in srgb,var(--teal) 13%,var(--surface));border-color:var(--teal)}
-  .rep-row.complete .rep-prog i{background:var(--teal)}
-  .rep-row.complete .rep-count b{color:var(--teal)}
-  .rep-row.complete .rep-ok{display:inline}
+  .rep-single.complete .rep-inc{background:color-mix(in srgb,var(--teal) 13%,var(--surface));border-color:var(--teal)}
+  .rep-single.complete .rep-prog i{background:var(--teal)}
+  .rep-single.complete .rep-count b{color:var(--teal)}
+  .rep-single.complete .rep-ok{display:inline}
+  .rep-single.complete .rep-tap{color:var(--teal)}
   .rep-inc[disabled],.rep-dec[disabled]{cursor:default;opacity:.7}
 
   .state{padding:30px 22px;text-align:center}
@@ -227,30 +227,31 @@
   function loadDay(ms){try{var o=JSON.parse(localStorage.getItem('mutqin_day_'+dayKey(ms)));return o&&typeof o==='object'?o:{};}catch(e){return {};}}
   function saveDay(ms,st){localStorage.setItem('mutqin_day_'+dayKey(ms),JSON.stringify(st));}
 
-  function repRow(pg,target,count,interactive){
+  function counterBar(id,target,count,interactive){
     var c=count||0, pct=Math.min(100,Math.round(c/target*100)), complete=c>=target;
     var dis=interactive?'':' disabled';
-    return '<div class="rep-row'+(complete?' complete':'')+'" data-pg="'+pg+'" data-target="'+target+'">'+
-      '<button type="button" class="rep-inc"'+dis+'>'+
-        '<span class="rep-page">صـ '+ar(pg)+'</span>'+
-        '<span class="rep-prog"><i style="width:'+pct+'%"></i></span>'+
-        '<span class="rep-count"><b>'+ar(c)+'</b> / '+ar(target)+' <span class="rep-ok">✓</span></span>'+
-      '</button>'+
+    return '<div class="rep-single'+(complete?' complete':'')+'" data-key="'+id+'" data-target="'+target+'">'+
       '<button type="button" class="rep-dec" aria-label="إنقاص"'+dis+'>−</button>'+
+      '<button type="button" class="rep-inc"'+dis+'>'+
+        '<span class="rep-count"><b>'+ar(c)+'</b> / '+ar(target)+' <span class="rep-ok">✓</span></span>'+
+        '<span class="rep-prog"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="rep-tap">+١ تكرار</span>'+
+      '</button>'+
     '</div>';
   }
   function check(id,done,interactive){
     return '<button type="button" class="check" '+(interactive?('data-check="'+id+'"'):'disabled')+'></button>';
   }
-  function taskRep(id,name,sub,dot,pages,target,reps,done,interactive){
-    var rows=pages.map(function(p){return repRow(p,target,reps[p],interactive);}).join('');
+  function taskRep(id,name,sub,dot,chipsHtml,target,count,done,interactive){
     return '<div class="task task--rep'+(done?' done':'')+'">'+
       '<div class="task-head">'+check(id,done,interactive)+
-      '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div><div class="sub">'+sub+'</div></div></div>'+
-      '<div class="rep-list">'+rows+'</div></div>';
+      '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div><div class="sub">'+sub+'</div></div>'+
+      '<div class="t-quick">'+chipsHtml+'</div></div>'+
+      counterBar(id,target,count,interactive)+'</div>';
   }
-  function taskSimple(id,name,sub,dot,valHtml,done,interactive){
-    return '<div class="task'+(done?' done':'')+'"><div class="task-head">'+check(id,done,interactive)+
+  function taskSimple(id,name,sub,dot,valHtml,done,interactive,withCheck){
+    return '<div class="task'+(done?' done':'')+'"><div class="task-head">'+
+      (withCheck?check(id,done,interactive):'')+
       '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div><div class="sub">'+sub+'</div></div>'+
       '<div class="t-quick">'+valHtml+'</div></div></div>';
   }
@@ -277,25 +278,26 @@
 
     var st=loadDay(calMs), reps=st.reps||{}, done=st.done||{};
 
-    if(isToday){
-      var cum='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
-      var tasks=
-        taskRep('hifz','الحفظ','وجهان · ١٥ تكرارًا لكل وجه','var(--teal)',mem,HIFZ_TARGET,reps,done.hifz,true)+
-        taskRep('takrar','التكرار','٤ أوجه · ٥ تكرارات لكل وجه','var(--gold)',rep,TAKRAR_TARGET,reps,done.takrar,true)+
-        taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cum,done.tarakumiya,true)+
-        taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)','<span class="juz">الجزء '+arRange(juz)+'</span>',done.qadima,true);
-      return '<div class="card anim">'+head+'<div class="tasks">'+tasks+'</div></div>';
-    }
-
-    // بطاقة أمس — عرض ثابت مختصر (بدون تفاعل)
     var memHtml=mem.map(function(p){return '<span class="pg">'+ar(p)+'</span>';}).join('');
     var repHtml=rep.map(function(p){return '<span class="pg">'+ar(p)+'</span>';}).join('');
     var cumHtml='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
+    var juzHtml='<span class="juz">الجزء '+arRange(juz)+'</span>';
+
+    if(isToday){
+      var tasks=
+        taskRep('hifz','الحفظ','الوجهان معًا · الهدف ١٥ تكرارًا','var(--teal)',memHtml,HIFZ_TARGET,reps.hifz,done.hifz,true)+
+        taskRep('takrar','التكرار','الأربعة معًا · الهدف ٥ تكرارات','var(--gold)',repHtml,TAKRAR_TARGET,reps.takrar,done.takrar,true)+
+        taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cumHtml,done.tarakumiya,true,true)+
+        taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)',juzHtml,done.qadima,true,true);
+      return '<div class="card anim">'+head+'<div class="tasks">'+tasks+'</div></div>';
+    }
+
+    // بطاقة أمس — عرض ثابت مرجعي (بدون دوائر ولا تفاعل)
     var pt=
-      taskSimple('hifz','الحفظ','وجهان','var(--teal)',memHtml,done.hifz,false)+
-      taskSimple('takrar','التكرار','٤ أوجه','var(--gold)',repHtml,done.takrar,false)+
-      taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cumHtml,done.tarakumiya,false)+
-      taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)','<span class="juz">الجزء '+arRange(juz)+'</span>',done.qadima,false);
+      taskSimple('hifz','الحفظ','وجهان','var(--teal)',memHtml,done.hifz,false,false)+
+      taskSimple('takrar','التكرار','٤ أوجه','var(--gold)',repHtml,done.takrar,false,false)+
+      taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cumHtml,done.tarakumiya,false,false)+
+      taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)',juzHtml,done.qadima,false,false);
     return '<div class="card anim card--past">'+head+'<div class="tasks">'+pt+'</div></div>';
   }
 
@@ -309,10 +311,10 @@
     lastKey=dayKey(TODAY_MS);
   }
 
-  function updateRow(rowEl,c,target){
-    rowEl.querySelector('.rep-prog i').style.width=Math.min(100,Math.round(c/target*100))+'%';
-    rowEl.querySelector('.rep-count b').textContent=ar(c);
-    rowEl.classList.toggle('complete',c>=target);
+  function updateBox(boxEl,c,target){
+    boxEl.querySelector('.rep-prog i').style.width=Math.min(100,Math.round(c/target*100))+'%';
+    boxEl.querySelector('.rep-count b').textContent=ar(c);
+    boxEl.classList.toggle('complete',c>=target);
   }
 
   // تفاعل بطاقة اليوم فقط (بالتفويض)
@@ -323,11 +325,11 @@
     if(!inc&&!dec&&!chk) return;
     var st=loadDay(TODAY_MS); if(!st.reps)st.reps={}; if(!st.done)st.done={};
     if(inc||dec){
-      var rowEl=(inc||dec).closest('.rep-row');
-      var pg=rowEl.getAttribute('data-pg'), target=+rowEl.getAttribute('data-target');
-      var c=st.reps[pg]||0;
+      var boxEl=(inc||dec).closest('.rep-single');
+      var key=boxEl.getAttribute('data-key'), target=+boxEl.getAttribute('data-target');
+      var c=st.reps[key]||0;
       c=inc?Math.min(target,c+1):Math.max(0,c-1);
-      st.reps[pg]=c; saveDay(TODAY_MS,st); updateRow(rowEl,c,target);
+      st.reps[key]=c; saveDay(TODAY_MS,st); updateBox(boxEl,c,target);
       if(inc&&c===target&&navigator.vibrate) navigator.vibrate(18);
     }else if(chk){
       var id=chk.getAttribute('data-check');
