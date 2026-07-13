@@ -48,11 +48,10 @@
     font-family:"SF Arabic","Geeza Pro","Noto Naskh Arabic","Noto Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
     -webkit-font-smoothing:antialiased; line-height:1.5;
     padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);
-    font-variant-numeric:tabular-nums;
+    font-variant-numeric:tabular-nums; -webkit-tap-highlight-color:transparent;
   }
   .wrap{max-width:560px;margin:0 auto;padding:20px 16px 0}
 
-  /* Header */
   header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
   .logo{width:52px;height:52px;border-radius:14px;background:#fff;
     box-shadow:var(--shadow);padding:5px;flex:none;object-fit:contain}
@@ -63,11 +62,11 @@
     display:grid;place-items:center;transition:.15s}
   .theme-btn:hover{color:var(--ink);border-color:var(--teal)}
 
-  /* Cards */
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-    box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;animation:rise .4s ease both}
+    box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+  .card.anim{animation:rise .4s ease both}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  @media (prefers-reduced-motion:reduce){.card{animation:none}}
+  @media (prefers-reduced-motion:reduce){.card.anim{animation:none}}
 
   .card-top{padding:16px 18px;display:flex;align-items:baseline;gap:10px;
     border-bottom:1px solid var(--line);background:
@@ -76,38 +75,62 @@
     padding:4px 10px;border-radius:999px;letter-spacing:.4px;flex:none}
   .card--past .day-tag{background:transparent;color:var(--muted);border:1px solid var(--line-strong)}
   .hijri{font-size:15px;font-weight:700}
-  .hijri .wd{color:var(--gold);font-weight:800}
   .counter{margin-inline-start:auto;font-size:12px;color:var(--faint);white-space:nowrap}
 
-  .tasks{padding:6px 18px 14px}
-  .task{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px dashed var(--line)}
+  .tasks{padding:6px 16px 12px}
+  .task{padding:14px 2px;border-bottom:1px dashed var(--line)}
   .task:last-child{border-bottom:0}
-  .t-label{flex:none;min-width:112px}
+  .task-head{display:flex;align-items:center;gap:12px}
+  .t-label{min-width:0}
   .t-label .name{font-size:14.5px;font-weight:800;display:flex;align-items:center;gap:7px}
   .t-label .name::before{content:"";width:9px;height:9px;border-radius:3px;background:var(--dot,var(--teal));flex:none}
   .t-label .sub{font-size:11.5px;color:var(--faint);margin-top:3px;padding-inline-start:16px}
-  .t-val{margin-inline-start:auto;text-align:start;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
-  .pg{font-size:20px;font-weight:800;color:var(--ink);background:var(--surface-2);
-    border:1px solid var(--line);border-radius:10px;padding:3px 11px;min-width:44px;text-align:center}
-  .task--hifz .pg{color:#fff;background:var(--teal);border-color:var(--teal)}
-  .range{font-size:20px;font-weight:800;display:flex;align-items:center;gap:9px}
-  .range .to{color:var(--faint);font-size:15px}
-  .juz{font-size:17px;font-weight:800;background:var(--surface-2);border:1px solid var(--gold-soft);
-    color:var(--gold);border-radius:10px;padding:5px 13px}
+  .t-quick{margin-inline-start:auto;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 
-  /* past card compact */
-  .card--past{opacity:.92}
-  .card--past .tasks{padding-top:2px;padding-bottom:10px}
-  .card--past .task{padding:10px 0}
-  .card--past .pg,.card--past .range,.card--past .juz{font-size:16px}
-  .card--past .pg{padding:2px 9px;min-width:38px}
+  /* completion check */
+  .check{width:28px;height:28px;border-radius:50%;border:2px solid var(--line-strong);
+    background:transparent;color:transparent;cursor:pointer;flex:none;display:grid;place-items:center;
+    font-size:15px;font-weight:900;transition:.15s;padding:0}
+  .check::after{content:"✓";line-height:1}
+  .check:not(:disabled):hover{border-color:var(--teal)}
+  .check:disabled{cursor:default;opacity:.55}
+  .task.done .check{background:var(--teal);border-color:var(--teal);color:#fff}
+  .task.done .t-label .name{color:var(--muted)}
 
-  /* empty / done states */
-  .state{padding:34px 22px;text-align:center}
+  /* static chips (past card) */
+  .pg{font-size:18px;font-weight:800;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:10px;padding:2px 10px;min-width:40px;text-align:center}
+  .range{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .range .to{color:var(--faint);font-size:14px}
+  .juz{font-size:16px;font-weight:800;background:var(--surface-2);border:1px solid var(--gold-soft);
+    color:var(--gold);border-radius:10px;padding:4px 12px}
+
+  /* rep list (interactive counters) */
+  .rep-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 2px;padding-inline-start:40px}
+  .rep-row{display:flex;gap:8px}
+  .rep-inc{flex:1;display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);
+    border-radius:13px;background:var(--surface-2);cursor:pointer;font-family:inherit;color:var(--ink);
+    transition:transform .1s, background .15s, border-color .15s}
+  .rep-inc:active{transform:scale(.985)}
+  .rep-page{font-size:16px;font-weight:800;min-width:62px;text-align:start;white-space:nowrap}
+  .rep-prog{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden;min-width:40px}
+  .rep-prog i{display:block;height:100%;width:0;background:var(--teal-bright);border-radius:99px;transition:width .25s}
+  .rep-count{font-size:14px;font-weight:700;color:var(--muted);min-width:56px;text-align:end;white-space:nowrap}
+  .rep-count b{color:var(--ink);font-size:18px;font-weight:800}
+  .rep-ok{display:none;color:var(--teal);font-weight:900;margin-inline-start:2px}
+  .rep-dec{width:42px;flex:none;border:1px solid var(--line);border-radius:13px;background:var(--surface);
+    color:var(--muted);font-size:22px;font-weight:800;cursor:pointer;font-family:inherit;transition:.1s}
+  .rep-dec:active{transform:scale(.95)}
+  .rep-row.complete .rep-inc{background:color-mix(in srgb,var(--teal) 13%,var(--surface));border-color:var(--teal)}
+  .rep-row.complete .rep-prog i{background:var(--teal)}
+  .rep-row.complete .rep-count b{color:var(--teal)}
+  .rep-row.complete .rep-ok{display:inline}
+  .rep-inc[disabled],.rep-dec[disabled]{cursor:default;opacity:.7}
+
+  .state{padding:30px 22px;text-align:center}
   .state h2{margin:0 0 8px;font-size:19px}
   .state p{margin:0;color:var(--muted);font-size:14px}
 
-  /* skip control */
   .controls{margin-top:4px}
   .skip{width:100%;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
     border-radius:14px;padding:13px;font-family:inherit;font-size:14.5px;font-weight:800;
@@ -154,18 +177,18 @@
   </div>
 
   <footer>
-    اليوم يبدأ من الساعة ٤ فجرًا <span class="dot">•</span> التقويم هجري (أم القرى) <span class="dot">•</span> بياناتك محفوظة على جهازك فقط
+    اليوم يبدأ من الساعة ٤ فجرًا <span class="dot">•</span> التقويم هجري (أم القرى) <span class="dot">•</span> علاماتك وعدّادك محفوظة على جهازك وتتجدّد كل يوم
   </footer>
 </div>
 
 <script>
 (function(){
   "use strict";
-  var TZ="Asia/Riyadh", DAY_START=4;
+  var TZ="Asia/Riyadh", DAY_START=4, ONE=86400000;
   var ANCHOR=Date.UTC(2026,6,12,12);   // الأحد ٢٧ محرم ١٤٤٨ = الصف الأول
-  var ONE=86400000;
+  var HIFZ_TARGET=15, TAKRAR_TARGET=5;
 
-  // [الحفظ(الوجه الأخير), بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
+  // [الوجه الأخير للحفظ, بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
   var PLAN=[
     [274,222,"7-8"],[276,222,"9-10"],[278,222,"27-28"],[280,222,"29-30"],
     [282,242,"1-2"],[284,242,"3-4"],[286,242,"5-6"],[288,242,"7-8"],
@@ -175,9 +198,11 @@
     [314,262,"4-6"],[316,262,"7-9"],[318,262,"10-12"],[320,262,"27-28"],[321,262,"29-30"]
   ];
   var TOTAL=PLAN.length;
+  var TODAY_MS=null, lastKey=null;
 
   function ar(n){return String(n).replace(/[0-9]/g,function(d){return "٠١٢٣٤٥٦٧٨٩"[+d];});}
   function arRange(s){return s.replace(/[0-9]/g,function(d){return "٠١٢٣٤٥٦٧٨٩"[+d];}).replace("-","–");}
+  function pad(n){return n<10?"0"+n:""+n;}
 
   function riyadhParts(d){
     var f=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hour12:false});
@@ -192,97 +217,144 @@
     return ms;
   }
   function hijri(ms){
-    var f=new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',
-      {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
-    return f.format(new Date(ms));
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',
+      {weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(ms));
   }
   function getOffset(){var v=parseInt(localStorage.getItem('mutqin_skip'),10);return isNaN(v)?0:Math.max(0,v);}
   function setOffset(v){localStorage.setItem('mutqin_skip',String(Math.max(0,v)));}
 
-  function taskRow(name,sub,valHtml,cls,dot){
-    return '<div class="task '+(cls||'')+'">'+
-      '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div>'+
-      (sub?'<div class="sub">'+sub+'</div>':'')+'</div>'+
-      '<div class="t-val">'+valHtml+'</div></div>';
+  function dayKey(ms){var d=new Date(ms);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());}
+  function loadDay(ms){try{var o=JSON.parse(localStorage.getItem('mutqin_day_'+dayKey(ms)));return o&&typeof o==='object'?o:{};}catch(e){return {};}}
+  function saveDay(ms,st){localStorage.setItem('mutqin_day_'+dayKey(ms),JSON.stringify(st));}
+
+  function repRow(pg,target,count,interactive){
+    var c=count||0, pct=Math.min(100,Math.round(c/target*100)), complete=c>=target;
+    var dis=interactive?'':' disabled';
+    return '<div class="rep-row'+(complete?' complete':'')+'" data-pg="'+pg+'" data-target="'+target+'">'+
+      '<button type="button" class="rep-inc"'+dis+'>'+
+        '<span class="rep-page">صـ '+ar(pg)+'</span>'+
+        '<span class="rep-prog"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="rep-count"><b>'+ar(c)+'</b> / '+ar(target)+' <span class="rep-ok">✓</span></span>'+
+      '</button>'+
+      '<button type="button" class="rep-dec" aria-label="إنقاص"'+dis+'>−</button>'+
+    '</div>';
+  }
+  function check(id,done,interactive){
+    return '<button type="button" class="check" '+(interactive?('data-check="'+id+'"'):'disabled')+'></button>';
+  }
+  function taskRep(id,name,sub,dot,pages,target,reps,done,interactive){
+    var rows=pages.map(function(p){return repRow(p,target,reps[p],interactive);}).join('');
+    return '<div class="task task--rep'+(done?' done':'')+'">'+
+      '<div class="task-head">'+check(id,done,interactive)+
+      '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div><div class="sub">'+sub+'</div></div></div>'+
+      '<div class="rep-list">'+rows+'</div></div>';
+  }
+  function taskSimple(id,name,sub,dot,valHtml,done,interactive){
+    return '<div class="task'+(done?' done':'')+'"><div class="task-head">'+check(id,done,interactive)+
+      '<div class="t-label"><div class="name" style="--dot:'+dot+'">'+name+'</div><div class="sub">'+sub+'</div></div>'+
+      '<div class="t-quick">'+valHtml+'</div></div></div>';
   }
 
   function cardFor(calMs, isToday){
     var offset=getOffset();
     var idx=Math.round((calMs-ANCHOR)/ONE)-offset;
     var tag=isToday?'اليوم':'أمس';
-    var head='<div class="card-top"><span class="day-tag">'+tag+'</span>'+
-             '<span class="hijri"><span class="wd"></span></span></div>';
     var wd=hijri(calMs);
+    var head='<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span>';
 
     if(idx<0){
-      return '<div class="card '+(isToday?'':'card--past')+'">'+
-        '<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span></div>'+
+      return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
         '<div class="state"><h2>لم تبدأ الخطة بعد</h2><p>تبدأ الخطة يوم الأحد ٢٧ محرّم ١٤٤٨هـ بإذن الله.</p></div></div>';
     }
     if(idx>TOTAL-1){
-      return '<div class="card '+(isToday?'':'card--past')+'">'+
-        '<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span></div>'+
+      return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
         '<div class="state"><h2>أتممت الخطة كاملة 🤍</h2><p>بارك الله فيك وتقبّل منك، وثبّت ما حفظت.</p></div></div>';
     }
 
     var row=PLAN[idx], to=row[0], from=row[1], juz=row[2];
-    var mem=[to-1,to];
-    var rep=[to-5,to-4,to-3,to-2];
-    var cumTo=to-6;
+    var mem=[to-1,to], rep=[to-5,to-4,to-3,to-2], cumTo=to-6;
+    head+='<span class="counter">اليوم '+ar(idx+1)+' من '+ar(TOTAL)+'</span></div>';
 
+    var st=loadDay(calMs), reps=st.reps||{}, done=st.done||{};
+
+    if(isToday){
+      var cum='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
+      var tasks=
+        taskRep('hifz','الحفظ','وجهان · ١٥ تكرارًا لكل وجه','var(--teal)',mem,HIFZ_TARGET,reps,done.hifz,true)+
+        taskRep('takrar','التكرار','٤ أوجه · ٥ تكرارات لكل وجه','var(--gold)',rep,TAKRAR_TARGET,reps,done.takrar,true)+
+        taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cum,done.tarakumiya,true)+
+        taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)','<span class="juz">الجزء '+arRange(juz)+'</span>',done.qadima,true);
+      return '<div class="card anim">'+head+'<div class="tasks">'+tasks+'</div></div>';
+    }
+
+    // بطاقة أمس — عرض ثابت مختصر (بدون تفاعل)
     var memHtml=mem.map(function(p){return '<span class="pg">'+ar(p)+'</span>';}).join('');
     var repHtml=rep.map(function(p){return '<span class="pg">'+ar(p)+'</span>';}).join('');
-    var cumHtml='<span class="range"><span class="pg" style="background:var(--surface-2);color:var(--ink);border-color:var(--line)">'+ar(from)+'</span><span class="to">حتى</span><span class="pg" style="background:var(--surface-2);color:var(--ink);border-color:var(--line)">'+ar(cumTo)+'</span></span>';
-    var juzHtml='<span class="juz">الجزء '+arRange(juz)+'</span>';
-
-    var tasks=
-      taskRow('الحفظ','وجهان',memHtml,'task--hifz','var(--teal)')+
-      taskRow('التكرار','٥ مرّات لكل وجه',repHtml,'','var(--gold)')+
-      taskRow('المراجعة التراكمية','صفحات',cumHtml,'','var(--teal-bright)')+
-      taskRow('المراجعة القديمة','بالجزء',juzHtml,'','var(--gold)');
-
-    return '<div class="card '+(isToday?'':'card--past')+'">'+
-      '<div class="card-top"><span class="day-tag">'+tag+'</span>'+
-      '<span class="hijri">'+wd+'</span>'+
-      '<span class="counter">اليوم '+ar(idx+1)+' من '+ar(TOTAL)+'</span></div>'+
-      '<div class="tasks">'+tasks+'</div></div>';
+    var cumHtml='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
+    var pt=
+      taskSimple('hifz','الحفظ','وجهان','var(--teal)',memHtml,done.hifz,false)+
+      taskSimple('takrar','التكرار','٤ أوجه','var(--gold)',repHtml,done.takrar,false)+
+      taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cumHtml,done.tarakumiya,false)+
+      taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)','<span class="juz">الجزء '+arRange(juz)+'</span>',done.qadima,false);
+    return '<div class="card anim card--past">'+head+'<div class="tasks">'+pt+'</div></div>';
   }
 
   function render(){
     var now=new Date();
-    var today=planDayMs(now);
-    var html=cardFor(today,true)+cardFor(today-ONE,false);
-    document.getElementById('app').innerHTML=html;
-    var off=getOffset();
-    var pd=document.getElementById('paused');
+    TODAY_MS=planDayMs(now);
+    document.getElementById('app').innerHTML=cardFor(TODAY_MS,true)+cardFor(TODAY_MS-ONE,false);
+    var off=getOffset(), pd=document.getElementById('paused');
     if(off>0){pd.classList.add('show');document.getElementById('pausedN').textContent=ar(off)+(off===1?' يوم':(off===2?' يومين':' أيام'));}
     else pd.classList.remove('show');
+    lastKey=dayKey(TODAY_MS);
   }
 
-  document.getElementById('skipBtn').addEventListener('click',function(){
-    if(confirm('تأكيد: تجاوز اليوم؟ سيبقى وردك في مكانه ولن يتقدّم اليوم.')){
-      setOffset(getOffset()+1); render();
+  function updateRow(rowEl,c,target){
+    rowEl.querySelector('.rep-prog i').style.width=Math.min(100,Math.round(c/target*100))+'%';
+    rowEl.querySelector('.rep-count b').textContent=ar(c);
+    rowEl.classList.toggle('complete',c>=target);
+  }
+
+  // تفاعل بطاقة اليوم فقط (بالتفويض)
+  document.getElementById('app').addEventListener('click',function(e){
+    var inc=e.target.closest('.rep-inc:not([disabled])');
+    var dec=e.target.closest('.rep-dec:not([disabled])');
+    var chk=e.target.closest('.check[data-check]');
+    if(!inc&&!dec&&!chk) return;
+    var st=loadDay(TODAY_MS); if(!st.reps)st.reps={}; if(!st.done)st.done={};
+    if(inc||dec){
+      var rowEl=(inc||dec).closest('.rep-row');
+      var pg=rowEl.getAttribute('data-pg'), target=+rowEl.getAttribute('data-target');
+      var c=st.reps[pg]||0;
+      c=inc?Math.min(target,c+1):Math.max(0,c-1);
+      st.reps[pg]=c; saveDay(TODAY_MS,st); updateRow(rowEl,c,target);
+      if(inc&&c===target&&navigator.vibrate) navigator.vibrate(18);
+    }else if(chk){
+      var id=chk.getAttribute('data-check');
+      st.done[id]=!st.done[id]; saveDay(TODAY_MS,st);
+      chk.closest('.task').classList.toggle('done',!!st.done[id]);
+      if(navigator.vibrate) navigator.vibrate(10);
     }
   });
-  document.getElementById('undoBtn').addEventListener('click',function(){
-    setOffset(getOffset()-1); render();
-  });
 
-  // theme toggle
+  document.getElementById('skipBtn').addEventListener('click',function(){
+    if(confirm('تأكيد: تجاوز اليوم؟ سيبقى وردك في مكانه ولن يتقدّم اليوم.')){setOffset(getOffset()+1);render();}
+  });
+  document.getElementById('undoBtn').addEventListener('click',function(){setOffset(getOffset()-1);render();});
+
   var tb=document.getElementById('themeBtn');
-  function applyStored(){var t=localStorage.getItem('mutqin_theme'); if(t)document.documentElement.setAttribute('data-theme',t);}
-  applyStored();
+  (function(){var t=localStorage.getItem('mutqin_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
   tb.addEventListener('click',function(){
     var cur=document.documentElement.getAttribute('data-theme');
-    if(!cur){cur=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+    if(!cur)cur=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
     var next=cur==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',next);
     localStorage.setItem('mutqin_theme',next);
   });
 
   render();
-  // refresh across the 4am boundary if left open
-  setInterval(render, 60*1000);
+  // إعادة الرسم فقط عند تغيّر اليوم (عبور الـ٤ فجرًا)
+  setInterval(function(){if(dayKey(planDayMs(new Date()))!==lastKey) render();},30*1000);
 })();
 </script>
 </body>
