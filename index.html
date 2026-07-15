@@ -161,6 +161,35 @@
 
   footer{margin-top:22px;text-align:center;color:var(--faint);font-size:11.5px;line-height:1.9}
   footer .dot{color:var(--gold-soft)}
+
+  /* عدّاد تنازلي */
+  .timer{padding:18px 18px 20px;margin-top:16px}
+  .timer-head{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:2px}
+  .timer-title{font-size:13.5px;font-weight:800;color:var(--muted);letter-spacing:.3px}
+  .timer-display{font-size:46px;font-weight:800;text-align:center;letter-spacing:2px;
+    font-variant-numeric:tabular-nums;color:var(--ink);margin:8px 0 16px;line-height:1.1}
+  .timer.running .timer-display{color:var(--teal-bright)}
+  .timer.done .timer-display{color:var(--gold);animation:tflash .7s ease-in-out 3}
+  @keyframes tflash{50%{opacity:.3}}
+  @media (prefers-reduced-motion:reduce){.timer.done .timer-display{animation:none}}
+  .timer-inputs{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin-bottom:14px}
+  .ti-field{display:flex;flex-direction:column;align-items:center;gap:5px;width:78px}
+  .ti-field input{width:100%;text-align:center;font-family:inherit;font-size:23px;font-weight:800;
+    color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    padding:11px 4px;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
+  .ti-field input::-webkit-outer-spin-button,.ti-field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .ti-field input:focus{outline:none;border-color:var(--teal);background:var(--surface)}
+  .ti-field label{font-size:11px;color:var(--faint);font-weight:700}
+  .ti-colon{font-size:23px;font-weight:800;color:var(--faint);padding-top:11px}
+  .timer.active .timer-inputs{display:none}
+  .timer-btns{display:flex;gap:8px}
+  .timer-btns button{flex:1;border-radius:13px;padding:13px;font-family:inherit;font-size:14.5px;
+    font-weight:800;cursor:pointer;transition:.15s;border:1px solid var(--line-strong)}
+  .timer-btns button:active{transform:scale(.99)}
+  .t-start{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .timer.running .t-start{background:var(--surface);color:var(--teal)}
+  .t-reset{background:var(--surface);color:var(--muted)}
+  .t-reset:hover{border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
@@ -196,6 +225,31 @@
       <button class="undo" id="undoBtn">تراجع</button>
     </div>
     <p class="hint">إذا صار عندك توقّف (اختبارات مثلًا)، اضغط «تجاوز اليوم» ليبقى وردك في مكانه ولا يتقدّم.</p>
+  </div>
+
+  <div class="timer card" id="timer">
+    <div class="timer-head"><span class="timer-title">⏱ عدّاد تنازلي</span></div>
+    <div class="timer-display" id="timerDisplay">٠٠:٠٠:٠٠</div>
+    <div class="timer-inputs">
+      <div class="ti-field">
+        <input type="text" id="tHours" inputmode="numeric" maxlength="2" placeholder="٠" aria-label="ساعات">
+        <label for="tHours">ساعة</label>
+      </div>
+      <span class="ti-colon">:</span>
+      <div class="ti-field">
+        <input type="text" id="tMins" inputmode="numeric" maxlength="2" placeholder="٠" aria-label="دقائق">
+        <label for="tMins">دقيقة</label>
+      </div>
+      <span class="ti-colon">:</span>
+      <div class="ti-field">
+        <input type="text" id="tSecs" inputmode="numeric" maxlength="2" placeholder="٠" aria-label="ثوانٍ">
+        <label for="tSecs">ثانية</label>
+      </div>
+    </div>
+    <div class="timer-btns">
+      <button type="button" class="t-start" id="tStart">ابدأ</button>
+      <button type="button" class="t-reset" id="tReset">تصفير</button>
+    </div>
   </div>
 
   <footer>
@@ -390,6 +444,83 @@
     clockEl.innerHTML=ar(p.hour)+':'+ar(p.minute)+'<span class="sec">:'+ar(p.second)+'</span> <span class="ap">'+ap+'</span>';
   }
   tickClock(); setInterval(tickClock,1000);
+
+  // ===== عدّاد تنازلي =====
+  (function(){
+    var wrap=document.getElementById('timer'); if(!wrap) return;
+    var disp=document.getElementById('timerDisplay');
+    var hI=document.getElementById('tHours'), mI=document.getElementById('tMins'), sI=document.getElementById('tSecs');
+    var startBtn=document.getElementById('tStart'), resetBtn=document.getElementById('tReset');
+    var remaining=0, endAt=0, tid=null, running=false;
+
+    function toNum(v){
+      if(!v) return 0;
+      v=String(v).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);});
+      var n=parseInt(v.replace(/[^0-9]/g,''),10); return isNaN(n)?0:n;
+    }
+    function fmt(ms){
+      var t=Math.max(0,Math.ceil(ms/1000));
+      var h=Math.floor(t/3600), m=Math.floor((t%3600)/60), s=t%60;
+      return ar(pad(h))+':'+ar(pad(m))+':'+ar(pad(s));
+    }
+    function show(){ disp.textContent=fmt(remaining); }
+    function stopTick(){ if(tid){clearInterval(tid);tid=null;} }
+
+    function beep(){
+      try{
+        var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+        var ctx=new AC();
+        [0,0.28,0.56].forEach(function(off){
+          var o=ctx.createOscillator(), g=ctx.createGain();
+          o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+          var t=ctx.currentTime+off;
+          g.gain.setValueAtTime(0.0001,t);
+          g.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);
+          o.start(t); o.stop(t+0.22);
+        });
+        setTimeout(function(){try{ctx.close();}catch(e){}},1400);
+      }catch(e){}
+    }
+    function finish(){
+      stopTick(); running=false; remaining=0; show();
+      wrap.classList.remove('running','active'); wrap.classList.add('done');
+      startBtn.textContent='ابدأ';
+      haptic(true); beep();
+      setTimeout(function(){wrap.classList.remove('done');},2400);
+    }
+    function tick(){ remaining=endAt-Date.now(); if(remaining<=0){finish();return;} show(); }
+
+    function start(){
+      if(remaining<=0){
+        remaining=(toNum(hI.value)*3600+toNum(mI.value)*60+toNum(sI.value))*1000;
+      }
+      if(remaining<=0){ haptic(false); return; }
+      wrap.classList.remove('done'); wrap.classList.add('running','active');
+      running=true; startBtn.textContent='إيقاف';
+      endAt=Date.now()+remaining; show();
+      stopTick(); tid=setInterval(tick,200); haptic(false);
+    }
+    function pause(){
+      stopTick(); running=false; remaining=endAt-Date.now(); if(remaining<0)remaining=0;
+      wrap.classList.remove('running'); startBtn.textContent='استئناف'; show(); haptic(false);
+    }
+    function reset(){
+      stopTick(); running=false; remaining=0;
+      wrap.classList.remove('running','active','done');
+      startBtn.textContent='ابدأ'; show(); haptic(false);
+    }
+    function onInput(el,max){
+      el.addEventListener('input',function(){
+        var n=toNum(el.value); if(n>max)n=max;
+        el.value = el.value==='' ? '' : ar(String(n));
+      });
+    }
+    onInput(hI,99); onInput(mI,59); onInput(sI,59);
+    startBtn.addEventListener('click',function(){ running?pause():start(); });
+    resetBtn.addEventListener('click',reset);
+    show();
+  })();
 
   render();
   // إعادة الرسم فقط عند تغيّر اليوم (عبور الـ٤ فجرًا)
