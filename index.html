@@ -159,6 +159,10 @@
   .undo{border:0;background:transparent;color:var(--teal-bright);font-family:inherit;font-weight:800;
     font-size:12.5px;cursor:pointer;text-decoration:underline;padding:2px 4px}
 
+  .fri-box{display:none;margin-top:10px}
+  .fri-box.show{display:block}
+  .fri-btn:hover{border-color:var(--teal);color:var(--teal)}
+
   footer{margin-top:22px;text-align:center;color:var(--faint);font-size:11.5px;line-height:1.9}
   footer .dot{color:var(--gold-soft)}
 
@@ -224,7 +228,11 @@
       <span>الخطة متوقّفة <b id="pausedN"></b> — وردك ثابت مكانه</span>
       <button class="undo" id="undoBtn">تراجع</button>
     </div>
-    <p class="hint">إذا صار عندك توقّف (اختبارات مثلًا)، اضغط «تجاوز اليوم» ليبقى وردك في مكانه ولا يتقدّم.</p>
+    <p class="hint" id="skipHint">إذا صار عندك توقّف (اختبارات مثلًا)، اضغط «تجاوز اليوم» ليبقى وردك في مكانه ولا يتقدّم.</p>
+    <div id="friBox" class="fri-box">
+      <button class="skip fri-btn" id="friBtn"></button>
+      <p class="hint" id="friHint"></p>
+    </div>
   </div>
 
   <div class="timer card" id="timer">
@@ -262,7 +270,9 @@
   "use strict";
   var TZ="Asia/Riyadh", DAY_START=4, ONE=86400000;
   var ANCHOR=Date.UTC(2026,6,12,12);   // الأحد ٢٧ محرم ١٤٤٨ = الصف الأول
-  var HIFZ_TARGET=15, TAKRAR_TARGET=5;
+  var HIFZ_TARGET=15, TAKRAR_TARGET=5, WEEKLY_TARGET=3;
+  // الجمعة يوم مراجعة أسبوعية (لا حفظ ولا تكرار) ابتداءً من هذه الجمعة — وما قبلها يبقى على حاله
+  var FRIDAY_FROM=Date.UTC(2026,8,25,12);
 
   // [الوجه الأخير للحفظ, بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
   var PLAN=[
@@ -330,6 +340,48 @@
   function setOffset(v){localStorage.setItem('mutqin_skip',String(Math.max(0,v)));}
 
   function dayKey(ms){var d=new Date(ms);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());}
+
+  // ===== الجمعة: يوم مراجعة أسبوعية، مع خيار جعلها يومًا معتادًا =====
+  // الجُمَع المستثناة (التي جُعلت أيام حفظ معتادة) محفوظة بمفاتيح تواريخها
+  function getNormalFridays(){
+    try{var a=JSON.parse(localStorage.getItem('mutqin_fri_normal'));return Array.isArray(a)?a:[];}catch(e){return [];}
+  }
+  function setNormalFridays(a){localStorage.setItem('mutqin_fri_normal',JSON.stringify(a));}
+  function isNormalFriday(ms){return getNormalFridays().indexOf(dayKey(ms))>=0;}
+  function setNormalFriday(ms,on){
+    var a=getNormalFridays(), k=dayKey(ms), i=a.indexOf(k);
+    if(on&&i<0) a.push(k); else if(!on&&i>=0) a.splice(i,1);
+    setNormalFridays(a);
+  }
+  function isFriday(ms){return new Date(ms).getUTCDay()===5;}
+  // يوم راحة = جمعة بعد بدء العمل بالتعديل، لم تُستثنَ
+  function isRestDay(ms){return ms>=FRIDAY_FROM&&isFriday(ms)&&!isNormalFriday(ms);}
+  // عدد أيام الراحة الواقعة قبل هذا اليوم (لا تستهلك صفًّا من الخطة)
+  function restsBefore(ms){
+    if(ms<=FRIDAY_FROM) return 0;
+    var n=Math.ceil((ms-FRIDAY_FROM)/ONE/7);   // عدد الجُمَع في [FRIDAY_FROM, ms)
+    getNormalFridays().forEach(function(k){
+      var p=k.split('-'), t=Date.UTC(+p[0],+p[1]-1,+p[2],12);
+      if(t>=FRIDAY_FROM&&t<ms&&isFriday(t)) n--;
+    });
+    return Math.max(0,n);
+  }
+  // فهرس صفّ الخطة لهذا اليوم (ولأيام الراحة: فهرس الصف التالي، أي عدد ما استُهلك)
+  function planIndex(ms){return Math.round((ms-ANCHOR)/ONE)-getOffset()-restsBefore(ms);}
+  // صفوف الأسبوع المنتهي بهذه الجمعة: [start, end)
+  function weekRows(friMs){
+    var end=planIndex(friMs), start=end, m=friMs-ONE, guard=0;
+    while(guard++<14){
+      if(m<ANCHOR||isRestDay(m)) break;                       // جمعةُ مراجعةٍ سابقة = حدُّ الأسبوع
+      start=planIndex(m);
+      if(isFriday(m)) break;                                  // جمعةٌ استُثنيت: تدخل في الأسبوع ثم نقف
+      if(m<FRIDAY_FROM&&new Date(m).getUTCDay()===6) break;   // قبل بدء التعديل: السبت أوّل الأسبوع
+      m-=ONE;
+    }
+    if(start<0) start=0;
+    if(end>TOTAL) end=TOTAL;
+    return [start,end];
+  }
   function loadDay(ms){try{var o=JSON.parse(localStorage.getItem('mutqin_day_'+dayKey(ms)));return o&&typeof o==='object'?o:{};}catch(e){return {};}}
   function saveDay(ms,st){localStorage.setItem('mutqin_day_'+dayKey(ms),JSON.stringify(st));}
 
@@ -362,12 +414,42 @@
       '<div class="t-quick">'+valHtml+'</div></div></div>';
   }
 
+  // بطاقة الجمعة — مراجعة أسبوعية: أوجه الأسبوع ثلاثًا، وتراكمية الخميس، بلا حفظ ولا تكرار ولا مراجعة قديمة
+  function fridayCard(calMs, isToday, head){
+    var w=weekRows(calMs), start=w[0], end=w[1];
+    var st=loadDay(calMs), reps=st.reps||{}, done=st.done||{};
+    var cls='card anim'+(isToday?'':' card--past');
+    head+='<span class="counter">مراجعة أسبوعية</span></div>';
+
+    if(end<=start){
+      return '<div class="'+cls+'">'+head+
+        '<div class="state"><h2>الجمعة — يوم مراجعة</h2><p>لا حفظ اليوم ولا تكرار. وما مضى من الأسبوع لا أوجه فيه بعدُ.</p></div></div>';
+    }
+
+    var last=PLAN[end-1];
+    var wFrom=PLAN[start][0]-1, wTo=last[0];
+    var cumFrom=last[1], cumTo=last[0]-6;
+    var weekHtml='<span class="range"><span class="pg">'+ar(wFrom)+'</span><span class="to">حتى</span><span class="pg">'+ar(wTo)+'</span></span>';
+    var cumHtml='<span class="range"><span class="pg">'+ar(cumFrom)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
+    var nPages=wTo-wFrom+1;
+    var weekSub='أوجه الأسبوع معًا ('+ar(nPages)+' وجهًا)'+(isToday?' · الهدف ٣ مرات':'');
+
+    var tasks=isToday
+      ? taskRep('weekly','المراجعة الأسبوعية',weekSub,'var(--gold)',weekHtml,WEEKLY_TARGET,reps.weekly,done.weekly,true)+
+        taskSimple('tarakumiya','المراجعة التراكمية','صفحات · وردُ الخميس نفسه','var(--teal-bright)',cumHtml,done.tarakumiya,true,true)
+      : taskSimple('weekly','المراجعة الأسبوعية',weekSub,'var(--gold)',weekHtml,done.weekly,false,false)+
+        taskSimple('tarakumiya','المراجعة التراكمية','صفحات · وردُ الخميس نفسه','var(--teal-bright)',cumHtml,done.tarakumiya,false,false);
+
+    return '<div class="'+cls+'">'+head+'<div class="tasks">'+tasks+'</div></div>';
+  }
+
   function cardFor(calMs, isToday){
-    var offset=getOffset();
-    var idx=Math.round((calMs-ANCHOR)/ONE)-offset;
+    var idx=planIndex(calMs);
     var tag=isToday?'اليوم':'أمس';
     var wd=hijri(calMs);
     var head='<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span>';
+
+    if(isRestDay(calMs)&&idx>0&&idx<=TOTAL) return fridayCard(calMs,isToday,head);
 
     if(idx<0){
       return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
@@ -414,7 +496,27 @@
     var off=getOffset(), pd=document.getElementById('paused');
     if(off>0){pd.classList.add('show');document.getElementById('pausedN').textContent=ar(off)+(off===1?' يوم':(off===2?' يومين':' أيام'));}
     else pd.classList.remove('show');
+    renderFridayBox();
     lastKey=dayKey(TODAY_MS);
+  }
+
+  // زر الاستثناء — يظهر يوم الجمعة وحده
+  function renderFridayBox(){
+    var box=document.getElementById('friBox'), btn=document.getElementById('friBtn'), hint=document.getElementById('friHint');
+    // في يوم المراجعة الأسبوعية لا معنى لـ«تجاوز اليوم» — الخطة واقفة أصلًا
+    var rest=isRestDay(TODAY_MS), d1=rest?'none':'';
+    document.getElementById('skipBtn').style.display=d1;
+    document.getElementById('skipHint').style.display=d1;
+    var idx=planIndex(TODAY_MS);
+    if(!(TODAY_MS>=FRIDAY_FROM&&isFriday(TODAY_MS))||idx<=0||idx>TOTAL){box.classList.remove('show');return;}
+    box.classList.add('show');
+    if(isNormalFriday(TODAY_MS)){
+      btn.textContent='أعِدها يوم مراجعة أسبوعية';
+      hint.textContent='جمعة اليوم معدودةٌ يومًا معتادًا: فيها حفظ وتكرار ومراجعة كسائر الأيام.';
+    }else{
+      btn.textContent='اجعل جمعة اليوم يومًا معتادًا';
+      hint.textContent='إن أردت الحفظ في هذه الجمعة استثناءً، اجعلها يومًا معتادًا — ويمضي الترتيب بعدها بلا خلل.';
+    }
   }
 
   function updateBox(boxEl,c,target){
@@ -449,6 +551,13 @@
     if(confirm('تأكيد: تجاوز اليوم؟ سيبقى وردك في مكانه ولن يتقدّم اليوم.')){setOffset(getOffset()+1);render();}
   });
   document.getElementById('undoBtn').addEventListener('click',function(){setOffset(getOffset()-1);render();});
+
+  document.getElementById('friBtn').addEventListener('click',function(){
+    var on=isNormalFriday(TODAY_MS);
+    var msg=on?'تأكيد: إرجاع جمعة اليوم يوم مراجعة أسبوعية؟'
+              :'تأكيد: جعل جمعة اليوم يومًا معتادًا؟ سيعود فيها الحفظ والتكرار والمراجعة، وتُحسب من أيام الخطة.';
+    if(confirm(msg)){setNormalFriday(TODAY_MS,!on);render();}
+  });
 
   var tb=document.getElementById('themeBtn');
   (function(){var t=localStorage.getItem('mutqin_theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
