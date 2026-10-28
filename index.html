@@ -273,6 +273,11 @@
   var HIFZ_TARGET=15, TAKRAR_TARGET=5, WEEKLY_TARGET=3;
   // الجمعة يوم مراجعة أسبوعية (لا حفظ ولا تكرار) ابتداءً من هذه الجمعة — وما قبلها يبقى على حاله
   var FRIDAY_FROM=Date.UTC(2026,8,25,12);
+  // أيام إيقاف الحفظ: لا حفظ فيها ولا تكرار، ولا تستهلك صفًّا من الخطة؛ وتمضي فيها المراجعتان
+  // [من, إلى) — من الثلاثاء ١٦ جمادى الأولى ١٤٤٨ (٢٧ أكتوبر)، ويعود الحفظ الأحد ٢١ منه (١ نوفمبر)
+  var HALTS=[[Date.UTC(2026,9,27,12),Date.UTC(2026,10,1,12)]];
+  // للمراجعة القديمة بعد آخر الخطة (تمضي على ترتيبها، فتتجاوز الخطة بقدر أيام الإيقاف)
+  var OLD_EXTRA=["1-2","3-4","5-6","7-8"];
 
   // [الوجه الأخير للحفظ, بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
   var PLAN=[
@@ -366,8 +371,22 @@
     });
     return Math.max(0,n);
   }
-  // فهرس صفّ الخطة لهذا اليوم (ولأيام الراحة: فهرس الصف التالي، أي عدد ما استُهلك)
-  function planIndex(ms){return Math.round((ms-ANCHOR)/ONE)-getOffset()-restsBefore(ms);}
+  // يوم إيقاف = يقع في مدة إيقاف، وليس جمعة مراجعة
+  function isHaltDay(ms){
+    for(var i=0;i<HALTS.length;i++) if(ms>=HALTS[i][0]&&ms<HALTS[i][1]&&!isRestDay(ms)) return true;
+    return false;
+  }
+  // عدد أيام الإيقاف الواقعة قبل هذا اليوم
+  function haltsBefore(ms){
+    var n=0;
+    HALTS.forEach(function(h){for(var t=h[0];t<h[1]&&t<ms;t+=ONE) if(!isRestDay(t)) n++;});
+    return n;
+  }
+  // فهرس اليوم في ترتيب المراجعة القديمة — لا يقف لأيام الإيقاف
+  function oldIndex(ms){return Math.round((ms-ANCHOR)/ONE)-getOffset()-restsBefore(ms);}
+  function oldJuz(ms){var i=oldIndex(ms);return i<TOTAL?PLAN[i][2]:OLD_EXTRA[Math.min(i-TOTAL,OLD_EXTRA.length-1)];}
+  // فهرس صفّ الخطة لهذا اليوم (ولأيام الراحة والإيقاف: فهرس الصف التالي، أي عدد ما استُهلك)
+  function planIndex(ms){return oldIndex(ms)-haltsBefore(ms);}
   // صفوف الأسبوع المنتهي بهذه الجمعة: [start, end)
   function weekRows(friMs){
     var end=planIndex(friMs), start=end, m=friMs-ONE, guard=0;
@@ -443,6 +462,20 @@
     return '<div class="'+cls+'">'+head+'<div class="tasks">'+tasks+'</div></div>';
   }
 
+  // بطاقة يوم الإيقاف — لا حفظ ولا تكرار: التراكمية إلى آخر ما حُفظ، والقديمة على ترتيبها
+  function haltCard(calMs, idx, isToday, head){
+    var last=PLAN[idx-1], from=last[1], to=last[0];
+    var st=loadDay(calMs), done=st.done||{};
+    var cls='card anim'+(isToday?'':' card--past');
+    head+='<span class="counter">الحفظ موقوف</span></div>';
+    var cumHtml='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(to)+'</span></span>';
+    var juzHtml='<span class="juz">الجزء '+arRange(oldJuz(calMs))+'</span>';
+    var tasks=
+      taskSimple('tarakumiya','المراجعة التراكمية','صفحات · إلى آخر ما حُفظ','var(--teal-bright)',cumHtml,done.tarakumiya,isToday,isToday)+
+      taskSimple('qadima','المراجعة القديمة','بالجزء','var(--gold)',juzHtml,done.qadima,isToday,isToday);
+    return '<div class="'+cls+'">'+head+'<div class="tasks">'+tasks+'</div></div>';
+  }
+
   function cardFor(calMs, isToday){
     var idx=planIndex(calMs);
     var tag=isToday?'اليوم':'أمس';
@@ -450,6 +483,7 @@
     var head='<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span>';
 
     if(isRestDay(calMs)&&idx>0&&idx<=TOTAL) return fridayCard(calMs,isToday,head);
+    if(isHaltDay(calMs)&&idx>0&&idx<=TOTAL) return haltCard(calMs,idx,isToday,head);
 
     if(idx<0){
       return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
@@ -460,7 +494,7 @@
         '<div class="state"><h2>أتممت الخطة كاملة 🤍</h2><p>بارك الله فيك وتقبّل منك، وثبّت ما حفظت.</p></div></div>';
     }
 
-    var row=PLAN[idx], to=row[0], from=row[1], juz=row[2];
+    var row=PLAN[idx], to=row[0], from=row[1], juz=oldJuz(calMs);
     var mem=[to-1,to], rep=[to-5,to-4,to-3,to-2], cumTo=to-6;
     head+='<span class="counter">اليوم '+ar(idx+1)+' من '+ar(TOTAL)+'</span></div>';
 
@@ -503,8 +537,8 @@
   // زر الاستثناء — يظهر يوم الجمعة وحده
   function renderFridayBox(){
     var box=document.getElementById('friBox'), btn=document.getElementById('friBtn'), hint=document.getElementById('friHint');
-    // في يوم المراجعة الأسبوعية لا معنى لـ«تجاوز اليوم» — الخطة واقفة أصلًا
-    var rest=isRestDay(TODAY_MS), d1=rest?'none':'';
+    // في يوم المراجعة الأسبوعية ويوم الإيقاف لا معنى لـ«تجاوز اليوم» — الخطة واقفة أصلًا
+    var rest=isRestDay(TODAY_MS)||isHaltDay(TODAY_MS), d1=rest?'none':'';
     document.getElementById('skipBtn').style.display=d1;
     document.getElementById('skipHint').style.display=d1;
     var idx=planIndex(TODAY_MS);
