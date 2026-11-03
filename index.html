@@ -276,8 +276,6 @@
   // أيام إيقاف الحفظ: لا حفظ فيها ولا تكرار، ولا تستهلك صفًّا من الخطة؛ وتمضي فيها المراجعتان
   // [من, إلى) — من الثلاثاء ١٦ جمادى الأولى ١٤٤٨ (٢٧ أكتوبر)، ويعود الحفظ الأحد ٢١ منه (١ نوفمبر)
   var HALTS=[[Date.UTC(2026,9,27,12),Date.UTC(2026,10,1,12)]];
-  // للمراجعة القديمة بعد آخر الخطة (تمضي على ترتيبها، فتتجاوز الخطة بقدر أيام الإيقاف)
-  var OLD_EXTRA=["1-2","3-4","5-6","7-8"];
 
   // [الوجه الأخير للحفظ, بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
   var PLAN=[
@@ -384,7 +382,30 @@
   }
   // فهرس اليوم في ترتيب المراجعة القديمة — لا يقف لأيام الإيقاف
   function oldIndex(ms){return Math.round((ms-ANCHOR)/ONE)-getOffset()-restsBefore(ms);}
-  function oldJuz(ms){var i=oldIndex(ms);return i<TOTAL?PLAN[i][2]:OLD_EXTRA[Math.min(i-TOTAL,OLD_EXTRA.length-1)];}
+  // من أول إيقاف تُولَّد المراجعة القديمة ولا تؤخذ من الخطة، لأن الحفظ تأخر عنها:
+  // جزءان كل يوم: ٢٧–٢٨ ثم ٢٩–٣٠ ثم ١–٢ ... إلى آخر جزء قبل بداية التراكمية، ثم تعود.
+  function nextJuz(prev,max){
+    var b=+prev.split('-')[1];
+    if(prev==='27-28') return '29-30';
+    if(prev==='29-30') return '1-2';
+    if(b>=max) return '27-28';
+    if(b+2>max) return (max-1)+'-'+max;          // آخر الدورة: يتداخل ليبقى جزءين
+    return (b+1)+'-'+(b+2);
+  }
+  var oldSeq=null, oldSeqKey=null;
+  function buildOldSeq(){
+    var key=getOffset()+'|'+localStorage.getItem('mutqin_fri_normal');
+    if(oldSeq&&oldSeqKey===key) return oldSeq;
+    var seq={}, start=oldIndex(HALTS[0][0]), prev=PLAN[start-1][2];
+    for(var t=HALTS[0][0],g=0;g<400;t+=ONE,g++){
+      if(isRestDay(t)) continue;
+      var row=planIndex(t); if(row>TOTAL-1) break;
+      var max=Math.floor((PLAN[row][1]-2)/20);   // بداية التراكمية في الجزء max+1
+      prev=seq[oldIndex(t)]=nextJuz(prev,max);
+    }
+    oldSeq=seq; oldSeqKey=key; return seq;
+  }
+  function oldJuz(ms){var i=oldIndex(ms), s=buildOldSeq();return s[i]||PLAN[Math.min(i,TOTAL-1)][2];}
   // فهرس صفّ الخطة لهذا اليوم (ولأيام الراحة والإيقاف: فهرس الصف التالي، أي عدد ما استُهلك)
   function planIndex(ms){return oldIndex(ms)-haltsBefore(ms);}
   // صفوف الأسبوع المنتهي بهذه الجمعة: [start, end)
