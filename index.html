@@ -276,6 +276,8 @@
   // أيام إيقاف الحفظ: لا حفظ فيها ولا تكرار، ولا تستهلك صفًّا من الخطة؛ وتمضي فيها المراجعتان
   // [من, إلى) — من الثلاثاء ١٦ جمادى الأولى ١٤٤٨ (٢٧ أكتوبر)، ويعود الحفظ الأحد ٢١ منه (١ نوفمبر)
   var HALTS=[[Date.UTC(2026,9,27,12),Date.UTC(2026,10,1,12)]];
+  // آخر جمعة مراجعة أسبوعية: الجمعة ١٧ جمادى الآخرة ١٤٤٨ (٢٧ نوفمبر) — وما بعدها من الجُمَع أيام معتادة
+  var WEEKLY_UNTIL=Date.UTC(2026,10,27,12);
 
   // [الوجه الأخير للحفظ, بداية المراجعة التراكمية, المراجعة القديمة بالجزء]
   var PLAN=[
@@ -312,6 +314,18 @@
     [514,442,"21-22"],[516,442,"27-28"],[517,442,"29-30"]
   ];
   var TOTAL=PLAN.length;
+
+  // خطة المراجعة بعد تمام الحفظ (ثلاثة أسابيع): مراجعة بعيدة وتراكمية فقط.
+  // تبدأ في اليوم التالي لآخر صفوف الحفظ — الخميس ١٦ جمادى الآخرة ١٤٤٨ —
+  // وجمعة ١٧ مراجعة أسبوعية لا تأخذ صفًّا، وما بعدها من الجُمَع أيام معتادة.
+  // [المراجعة البعيدة بالجزء, بداية التراكمية, أوجه التكرار (في اليومين الأولين فقط)]
+  var REVIEW_END=517;   // التراكمية إلى آخر ما حُفظ
+  var REVIEW=[
+    ["20-22",442,[515,516,517]],["27-28",442,[517]],["29-30",442],["1-3",442],
+    ["4-6",462],["7-9",462],["10-12",462],["13-15",462],["16-18",462],
+    ["19-21",462],["21-23",462],["27-28",462],["29-30",462],["1-3",462],
+    ["4-6",462],["7-9",462],["10-12",462],["13-15",462],["16-18",462]
+  ];
   var TODAY_MS=null, lastKey=null;
   var hptL=document.getElementById('hptL');
   function haptic(strong){
@@ -358,14 +372,15 @@
   }
   function isFriday(ms){return new Date(ms).getUTCDay()===5;}
   // يوم راحة = جمعة بعد بدء العمل بالتعديل، لم تُستثنَ
-  function isRestDay(ms){return ms>=FRIDAY_FROM&&isFriday(ms)&&!isNormalFriday(ms);}
+  function isRestDay(ms){return ms>=FRIDAY_FROM&&ms<=WEEKLY_UNTIL&&isFriday(ms)&&!isNormalFriday(ms);}
   // عدد أيام الراحة الواقعة قبل هذا اليوم (لا تستهلك صفًّا من الخطة)
   function restsBefore(ms){
     if(ms<=FRIDAY_FROM) return 0;
-    var n=Math.ceil((ms-FRIDAY_FROM)/ONE/7);   // عدد الجُمَع في [FRIDAY_FROM, ms)
+    var lim=Math.min(ms,WEEKLY_UNTIL+ONE);
+    var n=Math.ceil((lim-FRIDAY_FROM)/ONE/7);  // عدد جُمَع المراجعة في [FRIDAY_FROM, lim)
     getNormalFridays().forEach(function(k){
       var p=k.split('-'), t=Date.UTC(+p[0],+p[1]-1,+p[2],12);
-      if(t>=FRIDAY_FROM&&t<ms&&isFriday(t)) n--;
+      if(t>=FRIDAY_FROM&&t<lim&&isFriday(t)) n--;
     });
     return Math.max(0,n);
   }
@@ -469,6 +484,9 @@
     var last=PLAN[end-1];
     var wFrom=PLAN[start][0]-1, wTo=last[0];
     var cumFrom=last[1], cumTo=last[0]-6;
+    // إن كان الخميس من خطة المراجعة فتراكميته من جدولها
+    var thu=planIndex(calMs-ONE)-TOTAL;
+    if(thu>=0&&thu<REVIEW.length){cumFrom=REVIEW[thu][1];cumTo=REVIEW_END;}
     var weekHtml='<span class="range"><span class="pg">'+ar(wFrom)+'</span><span class="to">حتى</span><span class="pg">'+ar(wTo)+'</span></span>';
     var cumHtml='<span class="range"><span class="pg">'+ar(cumFrom)+'</span><span class="to">حتى</span><span class="pg">'+ar(cumTo)+'</span></span>';
     var nPages=wTo-wFrom+1;
@@ -497,19 +515,39 @@
     return '<div class="'+cls+'">'+head+'<div class="tasks">'+tasks+'</div></div>';
   }
 
+  // بطاقة خطة المراجعة — مراجعة تراكمية وبعيدة، ومعهما التكرار في اليومين الأولين
+  function reviewCard(calMs, r, isToday, head){
+    var row=REVIEW[r], juz=row[0], from=row[1], tk=row[2]||[];
+    var st=loadDay(calMs), reps=st.reps||{}, done=st.done||{};
+    head+='<span class="counter">المراجعة · اليوم '+ar(r+1)+' من '+ar(REVIEW.length)+'</span></div>';
+    var cumHtml='<span class="range"><span class="pg">'+ar(from)+'</span><span class="to">حتى</span><span class="pg">'+ar(REVIEW_END)+'</span></span>';
+    var juzHtml='<span class="juz">الجزء '+arRange(juz)+'</span>';
+    var tkHtml=tk.map(function(p){return '<span class="pg">'+ar(p)+'</span>';}).join('');
+    var tkName=tk.length===1?'الوجه':(tk.length===3?'الثلاثة معًا':ar(tk.length)+' أوجه');
+    var tasks='';
+    if(tk.length) tasks+=isToday
+      ? taskRep('takrar','التكرار',tkName+' · الهدف ٥ تكرارات','var(--gold)',tkHtml,TAKRAR_TARGET,reps.takrar,done.takrar,true)
+      : taskSimple('takrar','التكرار',tk.length===1?'وجه':ar(tk.length)+' أوجه','var(--gold)',tkHtml,done.takrar,false,false);
+    tasks+=
+      taskSimple('tarakumiya','المراجعة التراكمية','صفحات','var(--teal-bright)',cumHtml,done.tarakumiya,isToday,isToday)+
+      taskSimple('baeeda','المراجعة البعيدة','بالجزء','var(--gold)',juzHtml,done.baeeda,isToday,isToday);
+    return '<div class="card anim'+(isToday?'':' card--past')+'">'+head+'<div class="tasks">'+tasks+'</div></div>';
+  }
+
   function cardFor(calMs, isToday){
     var idx=planIndex(calMs);
     var tag=isToday?'اليوم':'أمس';
     var wd=hijri(calMs);
     var head='<div class="card-top"><span class="day-tag">'+tag+'</span><span class="hijri">'+wd+'</span>';
 
-    if(isRestDay(calMs)&&idx>0&&idx<=TOTAL) return fridayCard(calMs,isToday,head);
+    if(isRestDay(calMs)&&idx>0&&idx<=TOTAL+REVIEW.length) return fridayCard(calMs,isToday,head);
     if(isHaltDay(calMs)&&idx>0&&idx<=TOTAL) return haltCard(calMs,idx,isToday,head);
 
     if(idx<0){
       return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
         '<div class="state"><h2>لم تبدأ الخطة بعد</h2><p>تبدأ الخطة يوم الأحد ٢٧ محرّم ١٤٤٨هـ بإذن الله.</p></div></div>';
     }
+    if(idx>TOTAL-1&&idx-TOTAL<REVIEW.length) return reviewCard(calMs,idx-TOTAL,isToday,head);
     if(idx>TOTAL-1){
       return '<div class="card anim '+(isToday?'':'card--past')+'">'+head+'</div>'+
         '<div class="state"><h2>أتممت الخطة كاملة 🤍</h2><p>بارك الله فيك وتقبّل منك، وثبّت ما حفظت.</p></div></div>';
